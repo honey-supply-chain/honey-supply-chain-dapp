@@ -14,6 +14,7 @@ import ActorLabel from '../components/ActorLabel'
 import { LabDocuments, AwardDocuments, CertificateDocument, REASON_LABELS, SI_INFO, PHQI_INFO, MCI_INFO, QI_INFO } from './BatchDetail'
 import { useJarCount } from '../hooks/useJarCount'
 import { useOriginPlaces } from '../hooks/useOriginPlaces'
+import { useCustodyHistory } from '../hooks/useCustodyHistory'
 import InfoPopover from '../components/InfoPopover'
 
 const QI_WEIGHT_PHQI = 0.539
@@ -139,6 +140,8 @@ function ProductBatchDetails({
   const [si, phqi, mci, qi, state, reason] = qualityData
   const jarCount = useJarCount(batchId, holder)
   const originPlaces = useOriginPlaces(batchId)
+  const { records: custodyRecords } = useCustodyHistory(batchId)
+  const custodyHolders = [batch.beekeeper, ...custodyRecords.map((record) => record.to)]
 
   const siFraction = Number(si) / 10000
   const phqiFraction = Number(phqi) / 10000
@@ -170,6 +173,30 @@ function ProductBatchDetails({
       <p>Menge: {(Number(batch.quantity) / 1000).toFixed(1)} kg</p>
       <p>Aktueller Halter: <ActorLabel address={holder} /></p>
       <p>Herkunft: {originPlaces ? (originPlaces.length > 0 ? originPlaces.join(', ') : 'noch nicht eingetragen') : '...'}</p>
+
+      <h3>Lieferkette</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Halter</th>
+            <th>Erhalten am</th>
+            <th>Übergeben am</th>
+          </tr>
+        </thead>
+        <tbody>
+          {custodyHolders.map((holderAddress, index) => (
+            <tr key={index}>
+              <td><ActorLabel address={holderAddress} /></td>
+              <td>{index === 0 ? '—' : new Date(Number(custodyRecords[index - 1].timestamp) * 1000).toLocaleString()}</td>
+              <td>
+                {index === custodyHolders.length - 1
+                  ? '—'
+                  : new Date(Number(custodyRecords[index].timestamp) * 1000).toLocaleString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
 
       <h3>Qualität</h3>
       <p>Standort-Index (SI)<InfoPopover text={SI_INFO} />: {siFraction.toFixed(4)}</p>
