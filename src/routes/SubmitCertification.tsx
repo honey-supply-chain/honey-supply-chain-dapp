@@ -6,19 +6,13 @@ import { addresses } from '../addresses'
 import { requestCertification } from '../simulator'
 import { recordStep, recordError } from '../measurements'
 import { useActiveScenario, useCertificationReset } from '../scenario'
+import { CERTIFICATION_LABELS } from './BatchDetail'
 
 const OPTIONS = [
   { value: 'NATIONAL_QUALITY_LABEL', label: 'Nationales Gütesiegel' },
   { value: 'EU_ORGANIC', label: 'EU-Bio' },
   { value: 'ASSOCIATION_ORGANIC', label: 'Verbands-Bio' },
 ]
-
-const SCORE_LABELS: Record<number, string> = {
-  0: 'keines',
-  2500: 'Nationales Gütesiegel',
-  5000: 'EU-Bio',
-  10000: 'Verbands-Bio',
-}
 
 const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/'
 
@@ -91,7 +85,7 @@ function SubmitCertification() {
     <div>
       <h1>Zertifikat beantragen</h1>
       <p>
-        Aktuelles Zertifikat: {SCORE_LABELS[currentScore] ?? 'keines'}
+        Aktuelles Zertifikat: {CERTIFICATION_LABELS[currentScore] ?? 'unbekannt'}
         {currentCid && (
           <>
             {' '}— <a href={IPFS_GATEWAY + currentCid} target="_blank" rel="noreferrer">ansehen</a>

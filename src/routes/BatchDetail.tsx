@@ -7,6 +7,7 @@ import {
   useReadProductGatewayGetQualityData,
   useReadQualityIndexPhqiReportCid,
   useReadQualityIndexAwardCertificateCid,
+  useReadQualityIndexMciData,
   useReadActorRegistryCertifications,
   useReadHoneyTokenProcessedBatches,
   useReadSupplyChainRetailReceiptTimestamp,
@@ -35,6 +36,12 @@ import InfoPopover from '../components/InfoPopover'
 export const REASON_LABELS: Record<number, string> = {
   1: 'Wassergehalt überschritten',
   2: 'Kühlkettenverletzung',
+}
+export const CERTIFICATION_LABELS: Record<number, string> = {
+  0: 'Keine Zertifizierung',
+  2500: 'Nationales Gütesiegel',
+  5000: 'EU-Bio',
+  10000: 'Verbands-Bio',
 }
 const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/'
 
@@ -142,6 +149,12 @@ function BatchDetail() {
   })
   const jarCount = useJarCount(id, batchData?.[1])
   const originPlaces = useOriginPlaces(id)
+  const { data: mciData } = useReadQualityIndexMciData({
+    address: qualityIndex,
+    args: id !== undefined ? [id] : undefined,
+    query: { enabled: Boolean(qualityIndex && id !== undefined) },
+  })
+  const organicScore = mciData?.[2]
 
   if (!batchData || !qualityData) {
     return <p>Lädt...</p>
@@ -186,6 +199,14 @@ function BatchDetail() {
       <p>Menge: {(Number(batch.quantity) / 1000).toFixed(1)} kg</p>
       <p>Aktueller Halter: <ActorLabel address={holder} /></p>
       <p>Herkunft: {originPlaces ? (originPlaces.length > 0 ? originPlaces.join(', ') : 'noch nicht eingetragen') : '...'}</p>
+      <p>
+        Zertifiziert:{' '}
+        {originPlaces === undefined
+          ? 'noch nicht erfasst'
+          : organicScore !== undefined
+            ? CERTIFICATION_LABELS[organicScore] ?? 'unbekannt'
+            : '...'}
+      </p>
       {statusMessage && <p className={`status-banner ${statusMessage.kind}`}>{statusMessage.text}</p>}
 
       <h2>Standort-Index (SI)<InfoPopover text={SI_INFO} /></h2>
@@ -222,7 +243,7 @@ function BatchDetail() {
         isBeekeeperOfThisBatch={isBeekeeperOfThisBatch}
         onQualityChanged={refetchQualityData}
       />
-      <CertificateDocument beekeeper={batch.beekeeper} actorRegistry={actorRegistry} />
+      <CertificateDocument beekeeper={batch.beekeeper} actorRegistry={actorRegistry} organicScore={organicScore} />
 
       <h2>Qualitätsindex (QI)<InfoPopover text={QI_INFO} /></h2>
       <p>Wert: {qiFraction.toFixed(4)}</p>
@@ -774,16 +795,20 @@ export function AwardDocuments({
 export function CertificateDocument({
   beekeeper,
   actorRegistry,
+  organicScore,
 }: {
   beekeeper: `0x${string}`
   actorRegistry: `0x${string}` | undefined
+  organicScore: number | undefined
 }) {
   const { data: certificationData } = useReadActorRegistryCertifications({
     address: actorRegistry,
     args: [beekeeper],
-    query: { enabled: Boolean(actorRegistry) },
+    query: { enabled: Boolean(actorRegistry && organicScore) },
   })
   const [beekeeperCertCid] = certificationData ?? ['']
+
+  if (!organicScore) return null
 
   return (
     <p>
@@ -793,7 +818,7 @@ export function CertificateDocument({
           ansehen
         </a>
       ) : (
-        'nicht zertifiziert'
+        '...'
       )}
     </p>
   )

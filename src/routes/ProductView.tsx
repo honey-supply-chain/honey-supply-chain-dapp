@@ -8,10 +8,11 @@ import {
   useReadSupplyChainRetailReceiptTimestamp,
   useReadPricingModelAlpha,
   useReadPricingModelFloorPrices,
+  useReadQualityIndexMciData,
 } from '../generated'
 import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
-import { LabDocuments, AwardDocuments, CertificateDocument, REASON_LABELS, SI_INFO, PHQI_INFO, MCI_INFO, QI_INFO } from './BatchDetail'
+import { LabDocuments, AwardDocuments, CertificateDocument, REASON_LABELS, CERTIFICATION_LABELS, SI_INFO, PHQI_INFO, MCI_INFO, QI_INFO } from './BatchDetail'
 import { useJarCount } from '../hooks/useJarCount'
 import { useOriginPlaces } from '../hooks/useOriginPlaces'
 import { useCustodyHistory } from '../hooks/useCustodyHistory'
@@ -140,6 +141,12 @@ function ProductBatchDetails({
   const [si, phqi, mci, qi, state, reason] = qualityData
   const jarCount = useJarCount(batchId, holder)
   const originPlaces = useOriginPlaces(batchId)
+  const { data: mciData } = useReadQualityIndexMciData({
+    address: qualityIndex,
+    args: [batchId],
+    query: { enabled: Boolean(qualityIndex) },
+  })
+  const organicScore = mciData?.[2]
   const { records: custodyRecords } = useCustodyHistory(batchId)
   const custodyHolders = [batch.beekeeper, ...custodyRecords.map((record) => record.to)]
 
@@ -173,6 +180,14 @@ function ProductBatchDetails({
       <p>Menge: {(Number(batch.quantity) / 1000).toFixed(1)} kg</p>
       <p>Aktueller Halter: <ActorLabel address={holder} /></p>
       <p>Herkunft: {originPlaces ? (originPlaces.length > 0 ? originPlaces.join(', ') : 'noch nicht eingetragen') : '...'}</p>
+      <p>
+        Zertifiziert:{' '}
+        {originPlaces === undefined
+          ? 'noch nicht erfasst'
+          : organicScore !== undefined
+            ? CERTIFICATION_LABELS[organicScore] ?? 'unbekannt'
+            : '...'}
+      </p>
 
       <h3>Lieferkette</h3>
       <table>
@@ -246,7 +261,7 @@ function ProductBatchDetails({
         isBeekeeperOfThisBatch={false}
         onQualityChanged={() => {}}
       />
-      <CertificateDocument beekeeper={batch.beekeeper} actorRegistry={actorRegistry} />
+      <CertificateDocument beekeeper={batch.beekeeper} actorRegistry={actorRegistry} organicScore={organicScore} />
     </div>
   )
 }

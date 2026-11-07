@@ -1,11 +1,26 @@
 import { Navigate } from 'react-router-dom'
-import { useConnection } from 'wagmi'
+import { useChainId, useConnection } from 'wagmi'
 import { useMyRoles } from '../hooks/useMyRoles'
+import { useActorName } from '../hooks/useActorName'
+import { useReadActorRegistryCertifications } from '../generated'
+import { addresses } from '../addresses'
+import { CERTIFICATION_LABELS } from './BatchDetail'
 import Tile from '../components/Tile'
 
+const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/'
+
 function Dashboard() {
-  const { isConnected } = useConnection()
+  const chainId = useChainId()
+  const { address, isConnected } = useConnection()
   const roles = useMyRoles()
+  const name = useActorName(address)
+  const actorRegistry = addresses[chainId as keyof typeof addresses]?.ActorRegistry
+  const { data: certificationData } = useReadActorRegistryCertifications({
+    address: actorRegistry,
+    args: address ? [address] : undefined,
+    query: { enabled: Boolean(actorRegistry && address && roles.beekeeper) },
+  })
+  const [certCid, organicScore] = certificationData ?? ['', 0]
 
   if (!isConnected) {
     return <Navigate to="/" replace />
@@ -13,6 +28,19 @@ function Dashboard() {
 
   return (
     <div>
+      <h2>Halter-Daten</h2>
+      <p>Name: {name}</p>
+      {roles.beekeeper && (
+        <p>
+          Zertifikat: {CERTIFICATION_LABELS[organicScore] ?? 'unbekannt'}
+          {certCid && (
+            <>
+              {' '}— <a href={IPFS_GATEWAY + certCid} target="_blank" rel="noreferrer">ansehen</a>
+            </>
+          )}
+        </p>
+      )}
+
       <h2>Meine Rollen</h2>
       {roles.isLoading ? (
         <p>Rollen werden geladen...</p>
