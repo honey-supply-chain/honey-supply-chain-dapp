@@ -9,6 +9,7 @@ import { recordStep, recordError, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
 import { Link } from 'react-router-dom'
+import PendingTxOverlay from '../components/PendingTxOverlay'
 
 type Row = { apiaryId: number; kg: string }
 
@@ -115,6 +116,7 @@ function NewBatch() {
 
   return (
     <div>
+      <PendingTxOverlay active={registerBatch.isPending || receipt.isLoading} hash={registerBatch.data} />
       <h1>Charge anlegen</h1>
 
       <form onSubmit={handleSubmit}>

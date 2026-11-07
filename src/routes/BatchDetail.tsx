@@ -29,6 +29,7 @@ import { recordStep, recordError, roleLabel, errorMessage } from '../measurement
 import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
 import { useActiveScenario } from '../scenario'
+import PendingTxOverlay from '../components/PendingTxOverlay'
 
 const STATES = ['Active', 'RetestRequired', 'NotSellable']
 const REASONS = ['None', 'WaterContentExceeded', 'TemperatureViolation']
@@ -157,6 +158,7 @@ function BatchDetail() {
 
   return (
     <div>
+      <PendingTxOverlay active={retailReceiptStatus === 'loading'} hash={confirmRetailReceipt.data} />
       <h1>Charge #{batchId}</h1>
 
       <h2>Grunddaten</h2>
@@ -420,6 +422,9 @@ function HandlingActions({
 
   return (
     <div>
+      <PendingTxOverlay active={transportStatus === 'loading'} hash={recordTransport.data} />
+      <PendingTxOverlay active={warehouseStatus === 'loading'} hash={recordWarehouse.data} />
+      <PendingTxOverlay active={defrostStatus === 'loading'} hash={recordDefrost.data} />
       <p>
         {isDev && (
           <select value={transportForce} onChange={(e) => setTransportForce(e.target.value as SensorForce | '')}>

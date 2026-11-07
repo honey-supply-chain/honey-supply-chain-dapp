@@ -9,6 +9,7 @@ import { fetchRegionScore, uploadOrigin } from '../simulator'
 import { recordStep, recordError, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
+import PendingTxOverlay from '../components/PendingTxOverlay'
 
 const REGIONS = [
   { value: 'EU_NON_EU_MIX', label: 'EU- und Nicht-EU-Mix' },
@@ -197,6 +198,10 @@ function SubmitOrigin() {
 
   return (
     <div>
+      <PendingTxOverlay
+        active={phase === 'waitingRegion' || phase === 'waitingOrigin'}
+        hash={phase === 'waitingRegion' ? submitRegion.data : submitOriginTx.data}
+      />
       <h1>Herkunft einreichen — Charge #{batchId}</h1>
 
       <p>Beteiligte Orte: {placeNames.length > 0 ? placeNames.join(', ') : 'keine Zusammensetzung gefunden'}</p>

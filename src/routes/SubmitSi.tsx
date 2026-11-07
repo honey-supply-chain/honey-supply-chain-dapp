@@ -9,6 +9,7 @@ import { fetchSiScores, type SiScores } from '../simulator'
 import { recordStep, recordError, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
+import PendingTxOverlay from '../components/PendingTxOverlay'
 
 const FIELDS = [
   'forage', 'lightIntensity', 'waterSource', 'summerTemperature',
@@ -110,6 +111,7 @@ function SubmitSi() {
 
   return (
     <div>
+      <PendingTxOverlay active={submitSi.isPending || receipt.isLoading} hash={submitSi.data} />
       <h1>Standortdaten einreichen — Charge #{batchId}</h1>
 
       <p>

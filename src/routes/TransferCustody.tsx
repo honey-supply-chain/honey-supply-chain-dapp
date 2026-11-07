@@ -13,6 +13,7 @@ import { useMyRoles } from '../hooks/useMyRoles'
 import { recordStep, recordError, roleLabel, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
+import PendingTxOverlay from '../components/PendingTxOverlay'
 
 function TransferCustody() {
   const { batchId } = useParams()
@@ -143,6 +144,8 @@ function TransferCustody() {
 
   return (
     <div>
+      <PendingTxOverlay active={approve.isPending || approveReceipt.isLoading} hash={approve.data} />
+      <PendingTxOverlay active={transfer.isPending || transferReceipt.isLoading} hash={transfer.data} />
       <h1>Charge übergeben — #{batchId}</h1>
 
       {!isApproved ? (

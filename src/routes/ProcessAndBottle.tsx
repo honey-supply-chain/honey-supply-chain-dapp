@@ -7,6 +7,7 @@ import { useMyRoles } from '../hooks/useMyRoles'
 import { recordStep, recordError, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
+import PendingTxOverlay from '../components/PendingTxOverlay'
 
 const JAR_SIZE_GRAMS = 500
 
@@ -97,6 +98,7 @@ function ProcessAndBottle() {
 
   return (
     <div>
+      <PendingTxOverlay active={process.isPending || receipt.isLoading} hash={process.data} />
       <h1>Abfüllen — Charge #{batchId}</h1>
       <p>Verfügbare Menge: {(Number(batch.quantity) / 1000).toFixed(1)} kg</p>
 
