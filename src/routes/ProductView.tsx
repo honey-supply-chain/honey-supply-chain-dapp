@@ -11,14 +11,9 @@ import {
 } from '../generated'
 import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
-import { BatchDocuments } from './BatchDetail'
+import { BatchDocuments, REASON_LABELS } from './BatchDetail'
 import { useJarCount } from '../hooks/useJarCount'
 import { useOriginPlaces } from '../hooks/useOriginPlaces'
-
-const REASON_LABELS: Record<number, string> = {
-  1: 'Wassergehalt überschritten',
-  2: 'Kühlkettenverletzung',
-}
 
 const QI_WEIGHT_PHQI = 0.539
 const QI_WEIGHT_MCI = 0.2972

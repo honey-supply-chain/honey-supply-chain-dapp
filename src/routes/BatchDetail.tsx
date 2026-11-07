@@ -31,8 +31,10 @@ import { getFreshNonce } from '../nonce'
 import { useActiveScenario } from '../scenario'
 import PendingTxOverlay from '../components/PendingTxOverlay'
 
-const STATES = ['Active', 'RetestRequired', 'NotSellable']
-const REASONS = ['None', 'WaterContentExceeded', 'TemperatureViolation']
+export const REASON_LABELS: Record<number, string> = {
+  1: 'Wassergehalt überschritten',
+  2: 'Kühlkettenverletzung',
+}
 const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/'
 
 function labReportStorageKey(batchId: bigint): string {
@@ -150,11 +152,22 @@ function BatchDetail() {
   const canBottle = roles.bottler && isCurrentHolder && !processed
   const canConfirmRetailReceipt = roles.retailer && isCurrentHolder && !retailReceiptTimestamp
   const hasAnyAction = isBeekeeperOfThisBatch || isCurrentHolder
+  const canRequestLab = isBeekeeperOfThisBatch || (isCurrentHolder && state === 1)
   const blockReason =
     state === 1 ? 'Erst wieder möglich, sobald die Laboranalyse nach der Temperaturverletzung bestätigt wurde.'
       : state === 2 ? 'Nicht möglich: Die Charge ist dauerhaft nicht verkäuflich.'
       : null
   const retailBlockReason = blockReason ?? (!processed ? 'Erst möglich, sobald die Charge abgefüllt wurde.' : null)
+  const reasonLabel = REASON_LABELS[reason] ?? 'unbekannter Grund'
+  const statusMessage =
+    state === 1
+      ? {
+          kind: 'warning',
+          text: `Charge gesperrt – Nachprüfung erforderlich (${reasonLabel}).${canRequestLab ? ' Um die Sperre aufzuheben, fordere im Abschnitt „Dokumente" eine erneute Laboranalyse an.' : ''}`,
+        }
+      : state === 2
+        ? { kind: 'warning', text: `Nicht verkaufsfähig (${reasonLabel})` }
+        : null
 
   return (
     <div>
@@ -173,8 +186,7 @@ function BatchDetail() {
       <p>PHQI: {phqiFraction.toFixed(4)}</p>
       <p>MCI: {mciFraction.toFixed(4)}</p>
       <p>QI: {qiFraction.toFixed(4)}</p>
-      <p>Zustand: {state === 0 ? STATES[state] : <span className="state-warning">{STATES[state]}</span>}</p>
-      <p>Grund: {reason === 0 ? REASONS[reason] : <span className="state-warning">{REASONS[reason]}</span>}</p>
+      {statusMessage && <p className={`status-banner ${statusMessage.kind}`}>{statusMessage.text}</p>}
 
       <h2>Status</h2>
       <p>Abfüllstatus: {processed ? 'abgefüllt' : 'noch nicht abgefüllt'}</p>
@@ -261,7 +273,7 @@ function BatchDetail() {
         qualityIndex={qualityIndex}
         actorRegistry={actorRegistry}
         isBeekeeperOfThisBatch={isBeekeeperOfThisBatch}
-        canRequestLab={isBeekeeperOfThisBatch || (isCurrentHolder && state === 1)}
+        canRequestLab={canRequestLab}
         onQualityChanged={refetchQualityData}
         state={state}
       />
