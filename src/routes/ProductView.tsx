@@ -11,9 +11,10 @@ import {
 } from '../generated'
 import { addresses } from '../addresses'
 import ActorLabel from '../components/ActorLabel'
-import { BatchDocuments, REASON_LABELS } from './BatchDetail'
+import { LabDocuments, AwardDocuments, CertificateDocument, REASON_LABELS, SI_INFO, PHQI_INFO, MCI_INFO, QI_INFO } from './BatchDetail'
 import { useJarCount } from '../hooks/useJarCount'
 import { useOriginPlaces } from '../hooks/useOriginPlaces'
+import InfoPopover from '../components/InfoPopover'
 
 const QI_WEIGHT_PHQI = 0.539
 const QI_WEIGHT_MCI = 0.2972
@@ -171,10 +172,10 @@ function ProductBatchDetails({
       <p>Herkunft: {originPlaces ? (originPlaces.length > 0 ? originPlaces.join(', ') : 'noch nicht eingetragen') : '...'}</p>
 
       <h3>Qualität</h3>
-      <p>SI: {siFraction.toFixed(4)}</p>
-      <p>PHQI: {phqiFraction.toFixed(4)}</p>
-      <p>MCI: {mciFraction.toFixed(4)}</p>
-      <p>QI: {qiFraction.toFixed(4)}</p>
+      <p>Standort-Index (SI)<InfoPopover text={SI_INFO} />: {siFraction.toFixed(4)}</p>
+      <p>Physikalisch-chemischer Honigqualitätsindex (PHQI)<InfoPopover text={PHQI_INFO} />: {phqiFraction.toFixed(4)}</p>
+      <p>Marktbezogener Charakterisierungsindex (MCI)<InfoPopover text={MCI_INFO} />: {mciFraction.toFixed(4)}</p>
+      <p>Qualitätsindex (QI)<InfoPopover text={QI_INFO} />: {qiFraction.toFixed(4)}</p>
 
       <h3>Status</h3>
       <p>Abgefüllte Gläser (500 g): {jarCount !== undefined ? jarCount.toString() : '...'}</p>
@@ -205,16 +206,20 @@ function ProductBatchDetails({
       )}
 
       <h3>Dokumente</h3>
-      <BatchDocuments
+      <LabDocuments
         batchId={batchId}
-        beekeeper={batch.beekeeper}
         qualityIndex={qualityIndex}
-        actorRegistry={actorRegistry}
-        isBeekeeperOfThisBatch={false}
         canRequestLab={false}
         onQualityChanged={() => {}}
         state={state}
       />
+      <AwardDocuments
+        batchId={batchId}
+        qualityIndex={qualityIndex}
+        isBeekeeperOfThisBatch={false}
+        onQualityChanged={() => {}}
+      />
+      <CertificateDocument beekeeper={batch.beekeeper} actorRegistry={actorRegistry} />
     </div>
   )
 }

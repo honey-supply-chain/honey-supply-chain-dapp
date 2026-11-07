@@ -30,12 +30,18 @@ import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
 import { useActiveScenario } from '../scenario'
 import PendingTxOverlay from '../components/PendingTxOverlay'
+import InfoPopover from '../components/InfoPopover'
 
 export const REASON_LABELS: Record<number, string> = {
   1: 'Wassergehalt überschritten',
   2: 'Kühlkettenverletzung',
 }
 const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/'
+
+export const SI_INFO = 'Bewertet die Umweltbedingungen an den Bienenständen, aus denen die Charge stammt. Setzt sich zusammen aus Tracht (37,41 %), Lichtintensität (17,15 %), Wasserquelle (14,88 %), Sommertemperatur (11,20 %), Wintertemperatur (7,89 %), Windgeschwindigkeit (5,26 %), Luftfeuchtigkeit (3,64 %) und Niederschlag (2,56 %).'
+export const PHQI_INFO = 'Bewertet die Laborwerte der Charge: Wassergehalt, HMF-Gehalt und Invertase-Aktivität, je zu einem Drittel gewichtet. Überschreitet der Wassergehalt 23 %, wird die Charge automatisch gesperrt (PHQI = 0). Transport-, Lager- und Auftau-Meldungen verändern den PHQI nicht direkt, können aber bei einer Grenzwertverletzung eine Sperre auslösen, die eine neue Laboranalyse (Nachprüfung) erfordert.'
+export const MCI_INFO = 'Bewertet Vertrauens- und Marktmerkmale der Charge: Sorte (19,24 %), Herkunft (46,68 %), Zertifikat (16,18 %) und Prämierung (17,90 %). Die Sorte wird nicht gesondert eingegeben, sondern von der Laboranalyse (PHQI) mit übernommen.'
+export const QI_INFO = 'Fasst die drei Teilindizes zum Gesamtwert zusammen, der den Preis bestimmt: QI = PHQI × 53,90 % + MCI × 29,72 % + SI × 16,38 %.'
 
 function labReportStorageKey(batchId: bigint): string {
   return `labReport:${batchId.toString()}`
@@ -163,7 +169,7 @@ function BatchDetail() {
     state === 1
       ? {
           kind: 'warning',
-          text: `Charge gesperrt – Nachprüfung erforderlich (${reasonLabel}).${canRequestLab ? ' Um die Sperre aufzuheben, fordere im Abschnitt „Dokumente" eine erneute Laboranalyse an.' : ''}`,
+          text: `Charge gesperrt – Nachprüfung erforderlich (${reasonLabel}).${canRequestLab ? ' Um die Sperre aufzuheben, fordere im Abschnitt „PHQI" eine erneute Laboranalyse an.' : ''}`,
         }
       : state === 2
         ? { kind: 'warning', text: `Nicht verkaufsfähig (${reasonLabel})` }
@@ -180,13 +186,46 @@ function BatchDetail() {
       <p>Menge: {(Number(batch.quantity) / 1000).toFixed(1)} kg</p>
       <p>Aktueller Halter: <ActorLabel address={holder} /></p>
       <p>Herkunft: {originPlaces ? (originPlaces.length > 0 ? originPlaces.join(', ') : 'noch nicht eingetragen') : '...'}</p>
-
-      <h2>Qualität</h2>
-      <p>SI: {siFraction.toFixed(4)}</p>
-      <p>PHQI: {phqiFraction.toFixed(4)}</p>
-      <p>MCI: {mciFraction.toFixed(4)}</p>
-      <p>QI: {qiFraction.toFixed(4)}</p>
       {statusMessage && <p className={`status-banner ${statusMessage.kind}`}>{statusMessage.text}</p>}
+
+      <h2>Standort-Index (SI)<InfoPopover text={SI_INFO} /></h2>
+      <p>Wert: {siFraction.toFixed(4)}</p>
+      {isBeekeeperOfThisBatch && (
+        <p>
+          <Link to={`/batches/${batchId}/si`} className="tile">Standortdaten einreichen</Link>
+        </p>
+      )}
+
+      <h2>Physikalisch-chemischer Honigqualitätsindex (PHQI)<InfoPopover text={PHQI_INFO} /></h2>
+      <p>Wert: {phqiFraction.toFixed(4)}</p>
+      {isCurrentHolder && (
+        <HandlingActions batchId={id} supplyChain={supplyChain} onReported={refetchQualityData} />
+      )}
+      <LabDocuments
+        batchId={id}
+        qualityIndex={qualityIndex}
+        canRequestLab={canRequestLab}
+        onQualityChanged={refetchQualityData}
+        state={state}
+      />
+
+      <h2>Marktbezogener Charakterisierungsindex (MCI)<InfoPopover text={MCI_INFO} /></h2>
+      <p>Wert: {mciFraction.toFixed(4)}</p>
+      {isBeekeeperOfThisBatch && (
+        <p>
+          <Link to={`/batches/${batchId}/origin`} className="tile">Herkunft einreichen</Link>
+        </p>
+      )}
+      <AwardDocuments
+        batchId={id}
+        qualityIndex={qualityIndex}
+        isBeekeeperOfThisBatch={isBeekeeperOfThisBatch}
+        onQualityChanged={refetchQualityData}
+      />
+      <CertificateDocument beekeeper={batch.beekeeper} actorRegistry={actorRegistry} />
+
+      <h2>Qualitätsindex (QI)<InfoPopover text={QI_INFO} /></h2>
+      <p>Wert: {qiFraction.toFixed(4)}</p>
 
       <h2>Status</h2>
       <p>Abfüllstatus: {processed ? 'abgefüllt' : 'noch nicht abgefüllt'}</p>
@@ -213,12 +252,6 @@ function BatchDetail() {
         <>
           <h2>Aktionen</h2>
           <p>
-            {isBeekeeperOfThisBatch && (
-              <>
-                <Link to={`/batches/${batchId}/si`} className="tile">Standortdaten einreichen</Link>
-                <Link to={`/batches/${batchId}/origin`} className="tile">Herkunft einreichen</Link>
-              </>
-            )}
             {isCurrentHolder && (
               blockReason ? (
                 <span className="tile-disabled" title={blockReason}>
@@ -260,23 +293,8 @@ function BatchDetail() {
               </>
             )
           )}
-          {isCurrentHolder && (
-            <HandlingActions batchId={id} supplyChain={supplyChain} onReported={refetchQualityData} />
-          )}
         </>
       )}
-
-      <h2>Dokumente</h2>
-      <BatchDocuments
-        batchId={id}
-        beekeeper={batch.beekeeper}
-        qualityIndex={qualityIndex}
-        actorRegistry={actorRegistry}
-        isBeekeeperOfThisBatch={isBeekeeperOfThisBatch}
-        canRequestLab={canRequestLab}
-        onQualityChanged={refetchQualityData}
-        state={state}
-      />
     </div>
   )
 }
@@ -489,21 +507,15 @@ function describeReading(reading: SensorReading): string {
     : 'keine Temperaturverletzung'
 }
 
-export function BatchDocuments({
+export function LabDocuments({
   batchId,
-  beekeeper,
   qualityIndex,
-  actorRegistry,
-  isBeekeeperOfThisBatch,
   canRequestLab,
   onQualityChanged,
   state,
 }: {
   batchId: bigint | undefined
-  beekeeper: `0x${string}`
   qualityIndex: `0x${string}` | undefined
-  actorRegistry: `0x${string}` | undefined
-  isBeekeeperOfThisBatch: boolean
   canRequestLab: boolean
   onQualityChanged: () => void
   state: number
@@ -514,9 +526,6 @@ export function BatchDocuments({
   const [labStatus, setLabStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [labErrorMessage, setLabErrorMessage] = useState('')
   const [labForce, setLabForce] = useState<LabForce | ''>('')
-  const [awardStatus, setAwardStatus] = useState<'idle' | 'loading' | 'error'>('idle')
-  const [awardForce, setAwardForce] = useState<AwardForce | ''>('')
-  const { isRequested, markRequested } = useRequestedAwards()
 
   const [lastReportData, setLastReportData] = useState<LabReportData>()
   const [labReportHistory, setLabReportHistory] = useState<string[]>([])
@@ -582,12 +591,6 @@ export function BatchDocuments({
     }
   }
 
-  const { data: awardCertificateCid, refetch: refetchAwardCertificateCid } = useReadQualityIndexAwardCertificateCid({
-    address: qualityIndex,
-    args: batchId !== undefined ? [batchId] : undefined,
-    query: { enabled: Boolean(qualityIndex && batchId !== undefined) },
-  })
-
   async function handleRequestLab() {
     if (batchId === undefined) return
     const isRetest = state === 1
@@ -629,40 +632,6 @@ export function BatchDocuments({
       recordError({ chainId, batchId, step: 'labAnalysis', actor: 'lab', message })
     }
   }
-
-  async function handleRequestAward() {
-    if (batchId === undefined) return
-    setAwardStatus('loading')
-    try {
-      const result = await requestAward(Number(batchId), isDev ? (awardForce || undefined) : scenario.force.award)
-      await refetchAwardCertificateCid()
-      markRequested(Number(batchId))
-      onQualityChanged()
-      const receipt = publicClient
-        ? await publicClient.getTransactionReceipt({ hash: result.transactionHash as `0x${string}` })
-        : undefined
-      void recordStep({
-        chainId, batchId, step: 'award', actor: 'awardBody',
-        txHash: result.transactionHash, gasUsed: receipt?.gasUsed ?? BigInt(result.gasUsed),
-        gasPriceWei: receipt?.effectiveGasPrice,
-        durationMs: result.timings.renderMs + result.timings.uploadMs + result.timings.chainMs,
-        timings: result.timings, note: result.ipfsCid ? `cid=${result.ipfsCid}` : '',
-      })
-      setAwardStatus('idle')
-    } catch (err) {
-      setAwardStatus('error')
-      recordError({
-        chainId, batchId, step: 'award', actor: 'awardBody',
-        message: err instanceof Error ? err.message : 'Prämierungs-Anfrage fehlgeschlagen.',
-      })
-    }
-  }
-  const { data: certificationData } = useReadActorRegistryCertifications({
-    address: actorRegistry,
-    args: [beekeeper],
-    query: { enabled: Boolean(actorRegistry) },
-  })
-  const [beekeeperCertCid] = certificationData ?? ['']
 
   return (
     <>
@@ -710,6 +679,64 @@ export function BatchDocuments({
         )}
       </p>
       {labStatus === 'error' && <p>{labErrorMessage || 'Laboranalyse anfordern fehlgeschlagen.'}</p>}
+    </>
+  )
+}
+
+export function AwardDocuments({
+  batchId,
+  qualityIndex,
+  isBeekeeperOfThisBatch,
+  onQualityChanged,
+}: {
+  batchId: bigint | undefined
+  qualityIndex: `0x${string}` | undefined
+  isBeekeeperOfThisBatch: boolean
+  onQualityChanged: () => void
+}) {
+  const chainId = useChainId()
+  const publicClient = usePublicClient()
+  const { isDev, scenario } = useActiveScenario()
+  const [awardStatus, setAwardStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [awardForce, setAwardForce] = useState<AwardForce | ''>('')
+  const { isRequested, markRequested } = useRequestedAwards()
+
+  const { data: awardCertificateCid, refetch: refetchAwardCertificateCid } = useReadQualityIndexAwardCertificateCid({
+    address: qualityIndex,
+    args: batchId !== undefined ? [batchId] : undefined,
+    query: { enabled: Boolean(qualityIndex && batchId !== undefined) },
+  })
+
+  async function handleRequestAward() {
+    if (batchId === undefined) return
+    setAwardStatus('loading')
+    try {
+      const result = await requestAward(Number(batchId), isDev ? (awardForce || undefined) : scenario.force.award)
+      await refetchAwardCertificateCid()
+      markRequested(Number(batchId))
+      onQualityChanged()
+      const receipt = publicClient
+        ? await publicClient.getTransactionReceipt({ hash: result.transactionHash as `0x${string}` })
+        : undefined
+      void recordStep({
+        chainId, batchId, step: 'award', actor: 'awardBody',
+        txHash: result.transactionHash, gasUsed: receipt?.gasUsed ?? BigInt(result.gasUsed),
+        gasPriceWei: receipt?.effectiveGasPrice,
+        durationMs: result.timings.renderMs + result.timings.uploadMs + result.timings.chainMs,
+        timings: result.timings, note: result.ipfsCid ? `cid=${result.ipfsCid}` : '',
+      })
+      setAwardStatus('idle')
+    } catch (err) {
+      setAwardStatus('error')
+      recordError({
+        chainId, batchId, step: 'award', actor: 'awardBody',
+        message: err instanceof Error ? err.message : 'Prämierungs-Anfrage fehlgeschlagen.',
+      })
+    }
+  }
+
+  return (
+    <>
       <p>
         Prämierungsurkunde:{' '}
         {awardCertificateCid ? (
@@ -740,17 +767,35 @@ export function BatchDocuments({
         )}
       </p>
       {awardStatus === 'error' && <p>Prämierung anfordern fehlgeschlagen.</p>}
-      <p>
-        Zertifikat des Imkers:{' '}
-        {beekeeperCertCid ? (
-          <a href={IPFS_GATEWAY + beekeeperCertCid} target="_blank" rel="noreferrer">
-            ansehen
-          </a>
-        ) : (
-          'nicht zertifiziert'
-        )}
-      </p>
     </>
+  )
+}
+
+export function CertificateDocument({
+  beekeeper,
+  actorRegistry,
+}: {
+  beekeeper: `0x${string}`
+  actorRegistry: `0x${string}` | undefined
+}) {
+  const { data: certificationData } = useReadActorRegistryCertifications({
+    address: actorRegistry,
+    args: [beekeeper],
+    query: { enabled: Boolean(actorRegistry) },
+  })
+  const [beekeeperCertCid] = certificationData ?? ['']
+
+  return (
+    <p>
+      Zertifikat des Imkers:{' '}
+      {beekeeperCertCid ? (
+        <a href={IPFS_GATEWAY + beekeeperCertCid} target="_blank" rel="noreferrer">
+          ansehen
+        </a>
+      ) : (
+        'nicht zertifiziert'
+      )}
+    </p>
   )
 }
 
