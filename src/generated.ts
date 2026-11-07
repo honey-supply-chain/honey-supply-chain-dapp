@@ -1117,15 +1117,6 @@ export const qualityIndexAbi = [
     inputs: [
       { name: 'batchId', internalType: 'uint256', type: 'uint256' },
       { name: 'region', internalType: 'uint16', type: 'uint16' },
-    ],
-    name: 'submitMCIOriginData',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [
-      { name: 'batchId', internalType: 'uint256', type: 'uint256' },
       { name: 'ipfsCid', internalType: 'string', type: 'string' },
     ],
     name: 'submitOrigin',
@@ -2473,15 +2464,6 @@ export const useWriteQualityIndexSubmitAward =
   })
 
 /**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link qualityIndexAbi}__ and `functionName` set to `"submitMCIOriginData"`
- */
-export const useWriteQualityIndexSubmitMciOriginData =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: qualityIndexAbi,
-    functionName: 'submitMCIOriginData',
-  })
-
-/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link qualityIndexAbi}__ and `functionName` set to `"submitOrigin"`
  */
 export const useWriteQualityIndexSubmitOrigin =
@@ -2540,15 +2522,6 @@ export const useSimulateQualityIndexSubmitAward =
   /*#__PURE__*/ createUseSimulateContract({
     abi: qualityIndexAbi,
     functionName: 'submitAward',
-  })
-
-/**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link qualityIndexAbi}__ and `functionName` set to `"submitMCIOriginData"`
- */
-export const useSimulateQualityIndexSubmitMciOriginData =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: qualityIndexAbi,
-    functionName: 'submitMCIOriginData',
   })
 
 /**

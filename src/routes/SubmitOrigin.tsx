@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type SubmitEvent } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useChainId, useConnection, useWaitForTransactionReceipt } from 'wagmi'
-import { useWriteQualityIndexSubmitMciOriginData, useWriteQualityIndexSubmitOrigin } from '../generated'
+import { useWriteQualityIndexSubmitOrigin } from '../generated'
 import { addresses } from '../addresses'
 import { useApiaries } from '../hooks/useApiaries'
 import { useBatchComposition } from '../hooks/useBatchComposition'
@@ -27,20 +27,13 @@ function SubmitOrigin() {
   const { getComposition } = useBatchComposition()
 
   const [region, setRegion] = useState(REGIONS[0].value)
-  const [phase, setPhase] = useState<'form' | 'waitingRegion' | 'waitingOrigin' | 'retryOrigin' | 'done'>('form')
+  const [phase, setPhase] = useState<'form' | 'waiting' | 'done'>('form')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const uploadMsRef = useRef(0)
+  const offChainMsRef = useRef(0)
   const uploadedCidRef = useRef('')
-  const regionErrorRecorded = useRef(false)
-  const originErrorRecorded = useRef(false)
-  // Schützt vor React StrictMode, das Effekte im Dev-Modus absichtlich doppelt ausführt: Ohne diese
-  // Sperre würde der Effekt unten `submitOriginTx.mutate(...)` zweimal auslösen — die zweite
-  // Transaktion kommt dann mit einer bereits verbrauchten Nonce beim Wallet an ("Nonce too low").
-  const originUploadTriggered = useRef(false)
+  const errorRecorded = useRef(false)
 
-  const submitRegion = useWriteQualityIndexSubmitMciOriginData()
-  const regionReceipt = useWaitForTransactionReceipt({ hash: submitRegion.data })
-  const regionTiming = useTxTiming(submitRegion.data)
   const submitOriginTx = useWriteQualityIndexSubmitOrigin()
   const originReceipt = useWaitForTransactionReceipt({ hash: submitOriginTx.data })
   const originTiming = useTxTiming(submitOriginTx.data)
@@ -54,92 +47,37 @@ function SubmitOrigin() {
   )]
 
   useEffect(() => {
-    if (submitRegion.isError && !regionErrorRecorded.current) {
-      regionErrorRecorded.current = true
-      recordError({
-        chainId, batchId: id, step: 'submitMCIOriginData', actor: 'beekeeper', address,
-        message: errorMessage(submitRegion.error),
-      })
-      // Sonst bleibt der Button für immer bei "Wird eingereicht..." hängen — zurück zum Formular,
-      // damit ohne Neuladen der Seite ein neuer Versuch möglich ist.
-      setError(errorMessage(submitRegion.error))
-      setPhase('form')
-    }
-  }, [submitRegion.isError])
-
-  useEffect(() => {
-    if (submitOriginTx.isError && !originErrorRecorded.current) {
-      originErrorRecorded.current = true
+    if (submitOriginTx.isError && !errorRecorded.current) {
+      errorRecorded.current = true
       recordError({
         chainId, batchId: id, step: 'submitOrigin', actor: 'beekeeper', address,
         message: errorMessage(submitOriginTx.error),
       })
-      // Schritt 1 (Eignungsstufe) ist zu diesem Zeitpunkt schon auf der Chain — zurück zum Formular
-      // würde ihn nochmal einreichen. Stattdessen bei "waitingOrigin" stehen bleiben, aber den Button
-      // wieder freigeben, damit die zweite Transaktion erneut versucht werden kann.
       setError(errorMessage(submitOriginTx.error))
-      setPhase('retryOrigin')
+      setPhase('form')
     }
   }, [submitOriginTx.isError])
 
   useEffect(() => {
-    if (phase !== 'waitingRegion' || !regionReceipt.isSuccess || !regionReceipt.data || !id || !qualityIndex) return
-    if (originUploadTriggered.current) return
-    originUploadTriggered.current = true
-    if (regionReceipt.data.status === 'reverted') {
+    if (phase !== 'waiting' || !originReceipt.isSuccess || !originReceipt.data || id === undefined) return
+    if (originReceipt.data.status === 'reverted') {
       recordError({
-        chainId, batchId: id, step: 'submitMCIOriginData', actor: 'beekeeper', address,
+        chainId, batchId: id, step: 'submitOrigin', actor: 'beekeeper', address,
         message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
       })
+      setPhase('done')
       return
     }
-    const { walletConfirmMs, miningMs, totalMs } = regionTiming.split()
+    const { walletConfirmMs, miningMs, totalMs } = originTiming.split()
     void recordStep({
-      chainId, batchId: id, step: 'submitMCIOriginData', actor: 'beekeeper', address,
-      txHash: regionReceipt.data.transactionHash, gasUsed: regionReceipt.data.gasUsed,
-      gasPriceWei: regionReceipt.data.effectiveGasPrice,
-      durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
+      chainId, batchId: id, step: 'submitOrigin', actor: 'beekeeper', address,
+      txHash: originReceipt.data.transactionHash, gasUsed: originReceipt.data.gasUsed,
+      gasPriceWei: originReceipt.data.effectiveGasPrice,
+      durationMs: offChainMsRef.current + totalMs,
+      timings: { renderMs: 0, uploadMs: offChainMsRef.current, chainMs: totalMs },
+      walletTiming: { walletConfirmMs, miningMs },
+      note: uploadedCidRef.current ? `cid=${uploadedCidRef.current}` : '',
     })
-    const uploadStartedAt = performance.now()
-    uploadOrigin(placeNames)
-      .then(async (cid) => {
-        uploadMsRef.current = Math.round(performance.now() - uploadStartedAt)
-        uploadedCidRef.current = cid
-        originErrorRecorded.current = false
-        originTiming.markSubmitted()
-        const nonce = await getFreshNonce(address as `0x${string}` | undefined)
-        submitOriginTx.mutate({ address: qualityIndex, args: [id, cid], nonce })
-        setPhase('waitingOrigin')
-      })
-      .catch((err) => {
-        const message = err instanceof Error ? err.message : 'Hochladen der Herkunft ist fehlgeschlagen.'
-        setError(message)
-        recordError({ chainId, batchId: id, step: 'submitOrigin', actor: 'beekeeper', address, message })
-      })
-  }, [phase, regionReceipt.isSuccess])
-
-  useEffect(() => {
-    if (phase !== 'waitingOrigin' || !originReceipt.isSuccess || !originReceipt.data) return
-    if (id !== undefined) {
-      if (originReceipt.data.status === 'reverted') {
-        recordError({
-          chainId, batchId: id, step: 'submitOrigin', actor: 'beekeeper', address,
-          message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
-        })
-        setPhase('done')
-        return
-      }
-      const { walletConfirmMs, miningMs, totalMs } = originTiming.split()
-      void recordStep({
-        chainId, batchId: id, step: 'submitOrigin', actor: 'beekeeper', address,
-        txHash: originReceipt.data.transactionHash, gasUsed: originReceipt.data.gasUsed,
-        gasPriceWei: originReceipt.data.effectiveGasPrice,
-        durationMs: uploadMsRef.current + totalMs,
-        timings: { renderMs: 0, uploadMs: uploadMsRef.current, chainMs: totalMs },
-        walletTiming: { walletConfirmMs, miningMs },
-        note: uploadedCidRef.current ? `cid=${uploadedCidRef.current}` : '',
-      })
-    }
     setPhase('done')
   }, [phase, originReceipt.isSuccess])
 
@@ -147,31 +85,24 @@ function SubmitOrigin() {
     event.preventDefault()
     if (!id || !qualityIndex) return
     setError('')
+    setIsSubmitting(true)
+    const offChainStartedAt = performance.now()
     try {
-      const score = await fetchRegionScore(region)
-      regionErrorRecorded.current = false
-      originUploadTriggered.current = false
-      regionTiming.markSubmitted()
+      const [score, cid] = await Promise.all([fetchRegionScore(region), uploadOrigin(placeNames)])
+      offChainMsRef.current = Math.round(performance.now() - offChainStartedAt)
+      uploadedCidRef.current = cid
+      errorRecorded.current = false
+      originTiming.markSubmitted()
       const nonce = await getFreshNonce(address as `0x${string}` | undefined)
-      submitRegion.mutate({ address: qualityIndex, args: [id, score], nonce })
-      setPhase('waitingRegion')
+      submitOriginTx.mutate({ address: qualityIndex, args: [id, score, cid], nonce })
+      setPhase('waiting')
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Abfrage der Region beim Simulator ist fehlgeschlagen.'
+      const message = err instanceof Error ? err.message : 'Abfrage der Region oder Hochladen der Herkunft ist fehlgeschlagen.'
       setError(message)
-      recordError({ chainId, batchId: id, step: 'submitMCIOriginData', actor: 'beekeeper', address, message })
+      recordError({ chainId, batchId: id, step: 'submitOrigin', actor: 'beekeeper', address, message })
+    } finally {
+      setIsSubmitting(false)
     }
-  }
-
-  // Schritt 1 ist schon auf der Chain, der CID-Upload ist schon passiert — nur die zweite
-  // Transaktion nochmal mit einer frisch vom Node geholten Nonce abschicken.
-  async function handleRetryOrigin() {
-    if (!id || !qualityIndex || !uploadedCidRef.current) return
-    setError('')
-    originErrorRecorded.current = false
-    originTiming.markSubmitted()
-    const nonce = await getFreshNonce(address as `0x${string}` | undefined)
-    submitOriginTx.mutate({ address: qualityIndex, args: [id, uploadedCidRef.current], nonce })
-    setPhase('waitingOrigin')
   }
 
   if (!batchId) return <p>Lädt...</p>
@@ -185,23 +116,9 @@ function SubmitOrigin() {
     )
   }
 
-  if (phase === 'retryOrigin') {
-    return (
-      <div>
-        <h1>Herkunft einreichen — Charge #{batchId}</h1>
-        <p>Die Eignungsstufe wurde bereits eingereicht. Das Hochladen der Herkunftsangabe ist fehlgeschlagen.</p>
-        {error && <p>{error}</p>}
-        <button type="button" onClick={handleRetryOrigin}>Erneut versuchen</button>
-      </div>
-    )
-  }
-
   return (
     <div>
-      <PendingTxOverlay
-        active={phase === 'waitingRegion' || phase === 'waitingOrigin'}
-        hash={phase === 'waitingRegion' ? submitRegion.data : submitOriginTx.data}
-      />
+      <PendingTxOverlay active={phase === 'waiting'} hash={submitOriginTx.data} />
       <h1>Herkunft einreichen — Charge #{batchId}</h1>
 
       <p>Beteiligte Orte: {placeNames.length > 0 ? placeNames.join(', ') : 'keine Zusammensetzung gefunden'}</p>
@@ -216,8 +133,8 @@ function SubmitOrigin() {
           </select>
         </label>
 
-        <button type="submit" disabled={phase !== 'form' || placeNames.length === 0}>
-          {phase === 'form' ? 'Herkunft einreichen' : 'Wird eingereicht...'}
+        <button type="submit" disabled={isSubmitting || phase !== 'form' || placeNames.length === 0}>
+          {isSubmitting || phase !== 'form' ? 'Wird eingereicht...' : 'Herkunft einreichen'}
         </button>
       </form>
 
