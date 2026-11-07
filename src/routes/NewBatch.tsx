@@ -28,7 +28,7 @@ function NewBatch() {
   const { saveComposition } = useBatchComposition()
 
   const [year, setYear] = useState(new Date().getFullYear())
-  const [rows, setRows] = useState<Row[]>([{ apiaryId: apiaries[0]?.id ?? 0, kg: '' }])
+  const [rows, setRows] = useState<Row[]>([{ apiaryId: 0, kg: '' }])
   const [consumed, setConsumed] = useState(false)
   const errorRecorded = useRef(false)
 
@@ -77,7 +77,7 @@ function NewBatch() {
   }
 
   function addRow() {
-    setRows([...rows, { apiaryId: apiaries[0]?.id ?? 0, kg: '' }])
+    setRows([...rows, { apiaryId: 0, kg: '' }])
   }
 
   function removeRow(index: number) {
@@ -127,7 +127,14 @@ function NewBatch() {
 
         {rows.map((row, index) => (
           <div key={index}>
-            <select value={row.apiaryId} onChange={(e) => updateRow(index, { apiaryId: Number(e.target.value) })}>
+            <select
+              value={row.apiaryId}
+              onChange={(e) => updateRow(index, { apiaryId: Number(e.target.value) })}
+              required
+            >
+              <option value={0} disabled hidden>
+                Bitte auswählen
+              </option>
               {apiaries.map((apiary) => (
                 <option key={apiary.id} value={apiary.id}>
                   {apiary.name} (verfügbar: {(remaining(apiary.id, year) / 1000).toFixed(1)} kg)
@@ -156,7 +163,9 @@ function NewBatch() {
         </button>
 
         <button type="submit" disabled={registerBatch.isPending || receipt.isLoading}>
-          {registerBatch.isPending || receipt.isLoading ? 'Charge wird angelegt...' : 'Charge anlegen'}
+          {registerBatch.isPending || receipt.isLoading
+            ? 'Charge wird angelegt...'
+            : `Charge aus ${rows.length} ${rows.length === 1 ? 'Ernte' : 'Ernten'} anlegen`}
         </button>
       </form>
     </div>
