@@ -8,6 +8,7 @@ import {
   useReadHoneyTokenProcessedBatches,
   useReadPricingModelAlpha,
   useReadPricingModelFloorPrices,
+  useReadPricingModelCalculatePriceForPhqi,
   useReadQualityIndexMciData,
 } from '../generated'
 import { addresses } from '../addresses'
@@ -18,6 +19,7 @@ import { useOriginPlaces } from '../hooks/useOriginPlaces'
 import { useCustodyHistory } from '../hooks/useCustodyHistory'
 import { useBottledAt } from '../hooks/useBottledAt'
 import { useMyRoles } from '../hooks/useMyRoles'
+import { usePHQIRevision } from '../hooks/usePHQIRevision'
 import InfoPopover from '../components/InfoPopover'
 
 const QI_WEIGHT_PHQI = 0.539
@@ -111,6 +113,7 @@ function ProductView() {
           floorPrice={floorPrice}
           processed={processed}
           bottledAt={bottledAt}
+          pricingModel={pricingModel}
         />
       )}
     </div>
@@ -129,6 +132,7 @@ function ProductBatchDetails({
   floorPrice,
   processed,
   bottledAt,
+  pricingModel,
 }: {
   batchId: bigint
   batch: { harvestYear: number; beekeeper: `0x${string}`; quantity: bigint }
@@ -141,6 +145,7 @@ function ProductBatchDetails({
   floorPrice: bigint | undefined
   processed: boolean | undefined
   bottledAt: bigint | undefined
+  pricingModel: `0x${string}` | undefined
 }) {
   const [si, phqi, mci, qi, state, reason] = qualityData
   const jarCount = useJarCount(batchId, holder)
@@ -156,6 +161,12 @@ function ProductBatchDetails({
   const holderRoles = useMyRoles(holder)
   const isSellable = holderRoles.retailer && Boolean(processed) && state === 0
   const retailedSince = custodyRecords.length > 0 ? custodyRecords[custodyRecords.length - 1].timestamp : undefined
+  const oldPhqi = usePHQIRevision(batchId)
+  const { data: oldPrice } = useReadPricingModelCalculatePriceForPhqi({
+    address: pricingModel,
+    args: oldPhqi !== undefined ? [batchId, oldPhqi, 500] : undefined,
+    query: { enabled: Boolean(pricingModel && oldPhqi !== undefined) },
+  })
 
   const siFraction = Number(si) / 10000
   const phqiFraction = Number(phqi) / 10000
@@ -237,6 +248,12 @@ function ProductBatchDetails({
             ? `${(Number(priceQuery.data) / 100).toFixed(2)} €`
             : '...'}
       </p>
+      {oldPhqi !== undefined && (
+        <p>
+          Preis vor der letzten Nachprüfung (500 g):{' '}
+          {oldPrice !== undefined ? `${(Number(oldPrice) / 100).toFixed(2)} €` : '...'}
+        </p>
+      )}
 
       <h3>Preisbildungslogik</h3>
       <p>

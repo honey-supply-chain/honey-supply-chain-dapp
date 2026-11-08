@@ -105,6 +105,9 @@ function BatchDetail() {
     args: id !== undefined ? [id, 500] : undefined,
     query: { enabled },
   })
+  async function refetchQualityAndPrice() {
+    await Promise.all([refetchQualityData(), priceQuery.refetch()])
+  }
   const jarCount = useJarCount(id, batchData?.[1])
   const originPlaces = useOriginPlaces(id)
   const { data: mciData } = useReadQualityIndexMciData({
@@ -179,13 +182,13 @@ function BatchDetail() {
       <h2>Physikalisch-chemischer Honigqualitätsindex (PHQI)<InfoPopover text={PHQI_INFO} /></h2>
       <p>Wert: {phqiFraction.toFixed(4)}</p>
       {isCurrentHolder && (
-        <HandlingActions batchId={id} supplyChain={supplyChain} onReported={refetchQualityData} />
+        <HandlingActions batchId={id} supplyChain={supplyChain} onReported={refetchQualityAndPrice} />
       )}
       <LabDocuments
         batchId={id}
         qualityIndex={qualityIndex}
         canRequestLab={canRequestLab}
-        onQualityChanged={refetchQualityData}
+        onQualityChanged={refetchQualityAndPrice}
         state={state}
       />
 
@@ -200,7 +203,7 @@ function BatchDetail() {
         batchId={id}
         qualityIndex={qualityIndex}
         isBeekeeperOfThisBatch={isBeekeeperOfThisBatch}
-        onQualityChanged={refetchQualityData}
+        onQualityChanged={refetchQualityAndPrice}
       />
       <CertificateDocument beekeeper={batch.beekeeper} actorRegistry={actorRegistry} organicScore={organicScore} />
 

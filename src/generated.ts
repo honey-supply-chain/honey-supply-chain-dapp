@@ -666,6 +666,27 @@ export const pricingModelAbi = [
   },
   {
     type: 'function',
+    inputs: [
+      { name: 'batchId', internalType: 'uint256', type: 'uint256' },
+      { name: 'phqi', internalType: 'uint256', type: 'uint256' },
+      { name: 'jarSizeGrams', internalType: 'uint32', type: 'uint32' },
+    ],
+    name: 'calculatePriceForPHQI',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'qi', internalType: 'uint256', type: 'uint256' },
+      { name: 'jarSizeGrams', internalType: 'uint32', type: 'uint32' },
+    ],
+    name: 'calculatePriceForQI',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
     inputs: [{ name: '', internalType: 'uint32', type: 'uint32' }],
     name: 'floorPrices',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
@@ -912,6 +933,25 @@ export const qualityIndexAbi = [
     name: 'PHQIDataSubmitted',
   },
   {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'batchId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+      {
+        name: 'oldPhqi',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: false,
+      },
+    ],
+    name: 'PHQIRevised',
+  },
+  {
     type: 'function',
     inputs: [],
     name: 'actorRegistry',
@@ -981,6 +1021,16 @@ export const qualityIndexAbi = [
     type: 'function',
     inputs: [{ name: 'batchId', internalType: 'uint256', type: 'uint256' }],
     name: 'calculateQI',
+    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    inputs: [
+      { name: 'batchId', internalType: 'uint256', type: 'uint256' },
+      { name: 'phqi', internalType: 'uint256', type: 'uint256' },
+    ],
+    name: 'calculateQIForPHQI',
     outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'view',
   },
@@ -2050,6 +2100,24 @@ export const useReadPricingModelCalculatePrice =
   })
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link pricingModelAbi}__ and `functionName` set to `"calculatePriceForPHQI"`
+ */
+export const useReadPricingModelCalculatePriceForPhqi =
+  /*#__PURE__*/ createUseReadContract({
+    abi: pricingModelAbi,
+    functionName: 'calculatePriceForPHQI',
+  })
+
+/**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link pricingModelAbi}__ and `functionName` set to `"calculatePriceForQI"`
+ */
+export const useReadPricingModelCalculatePriceForQi =
+  /*#__PURE__*/ createUseReadContract({
+    abi: pricingModelAbi,
+    functionName: 'calculatePriceForQI',
+  })
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link pricingModelAbi}__ and `functionName` set to `"floorPrices"`
  */
 export const useReadPricingModelFloorPrices =
@@ -2360,6 +2428,15 @@ export const useReadQualityIndexCalculateQi =
   })
 
 /**
+ * Wraps __{@link useReadContract}__ with `abi` set to __{@link qualityIndexAbi}__ and `functionName` set to `"calculateQIForPHQI"`
+ */
+export const useReadQualityIndexCalculateQiForPhqi =
+  /*#__PURE__*/ createUseReadContract({
+    abi: qualityIndexAbi,
+    functionName: 'calculateQIForPHQI',
+  })
+
+/**
  * Wraps __{@link useReadContract}__ with `abi` set to __{@link qualityIndexAbi}__ and `functionName` set to `"calculateSI"`
  */
 export const useReadQualityIndexCalculateSi =
@@ -2572,6 +2649,15 @@ export const useWatchQualityIndexPhqiDataSubmittedEvent =
   /*#__PURE__*/ createUseWatchContractEvent({
     abi: qualityIndexAbi,
     eventName: 'PHQIDataSubmitted',
+  })
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link qualityIndexAbi}__ and `eventName` set to `"PHQIRevised"`
+ */
+export const useWatchQualityIndexPhqiRevisedEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: qualityIndexAbi,
+    eventName: 'PHQIRevised',
   })
 
 /**
