@@ -1212,6 +1212,19 @@ export const supplyChainAbi = [
     stateMutability: 'nonpayable',
   },
   {
+    type: 'event',
+    anonymous: false,
+    inputs: [
+      {
+        name: 'batchId',
+        internalType: 'uint256',
+        type: 'uint256',
+        indexed: true,
+      },
+    ],
+    name: 'BatchBottled',
+  },
+  {
     type: 'function',
     inputs: [],
     name: 'actorRegistry',
@@ -1336,13 +1349,6 @@ export const supplyChainAbi = [
   },
   {
     type: 'function',
-    inputs: [{ name: 'batchId', internalType: 'uint256', type: 'uint256' }],
-    name: 'recordRetailReceipt',
-    outputs: [],
-    stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
     inputs: [
       { name: 'batchId', internalType: 'uint256', type: 'uint256' },
       { name: 'temperatureCelsius', internalType: 'int256', type: 'int256' },
@@ -1377,13 +1383,6 @@ export const supplyChainAbi = [
     name: 'registerHarvestBatch',
     outputs: [{ name: 'batchId', internalType: 'uint256', type: 'uint256' }],
     stateMutability: 'nonpayable',
-  },
-  {
-    type: 'function',
-    inputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    name: 'retailReceiptTimestamp',
-    outputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
-    stateMutability: 'view',
   },
   {
     type: 'function',
@@ -2678,15 +2677,6 @@ export const useReadSupplyChainQualityIndex =
   })
 
 /**
- * Wraps __{@link useReadContract}__ with `abi` set to __{@link supplyChainAbi}__ and `functionName` set to `"retailReceiptTimestamp"`
- */
-export const useReadSupplyChainRetailReceiptTimestamp =
-  /*#__PURE__*/ createUseReadContract({
-    abi: supplyChainAbi,
-    functionName: 'retailReceiptTimestamp',
-  })
-
-/**
  * Wraps __{@link useWriteContract}__ with `abi` set to __{@link supplyChainAbi}__
  */
 export const useWriteSupplyChain = /*#__PURE__*/ createUseWriteContract({
@@ -2700,15 +2690,6 @@ export const useWriteSupplyChainProcessAndBottle =
   /*#__PURE__*/ createUseWriteContract({
     abi: supplyChainAbi,
     functionName: 'processAndBottle',
-  })
-
-/**
- * Wraps __{@link useWriteContract}__ with `abi` set to __{@link supplyChainAbi}__ and `functionName` set to `"recordRetailReceipt"`
- */
-export const useWriteSupplyChainRecordRetailReceipt =
-  /*#__PURE__*/ createUseWriteContract({
-    abi: supplyChainAbi,
-    functionName: 'recordRetailReceipt',
   })
 
 /**
@@ -2782,15 +2763,6 @@ export const useSimulateSupplyChainProcessAndBottle =
   })
 
 /**
- * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link supplyChainAbi}__ and `functionName` set to `"recordRetailReceipt"`
- */
-export const useSimulateSupplyChainRecordRetailReceipt =
-  /*#__PURE__*/ createUseSimulateContract({
-    abi: supplyChainAbi,
-    functionName: 'recordRetailReceipt',
-  })
-
-/**
  * Wraps __{@link useSimulateContract}__ with `abi` set to __{@link supplyChainAbi}__ and `functionName` set to `"recordTransportData"`
  */
 export const useSimulateSupplyChainRecordTransportData =
@@ -2842,4 +2814,19 @@ export const useSimulateSupplyChainTransferCustody =
   /*#__PURE__*/ createUseSimulateContract({
     abi: supplyChainAbi,
     functionName: 'transferCustody',
+  })
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link supplyChainAbi}__
+ */
+export const useWatchSupplyChainEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({ abi: supplyChainAbi })
+
+/**
+ * Wraps __{@link useWatchContractEvent}__ with `abi` set to __{@link supplyChainAbi}__ and `eventName` set to `"BatchBottled"`
+ */
+export const useWatchSupplyChainBatchBottledEvent =
+  /*#__PURE__*/ createUseWatchContractEvent({
+    abi: supplyChainAbi,
+    eventName: 'BatchBottled',
   })

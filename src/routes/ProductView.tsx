@@ -5,7 +5,7 @@ import {
   useReadProductGatewayGetBatchData,
   useReadProductGatewayGetQualityData,
   useReadProductGatewayGetPrice,
-  useReadSupplyChainRetailReceiptTimestamp,
+  useReadHoneyTokenProcessedBatches,
   useReadPricingModelAlpha,
   useReadPricingModelFloorPrices,
   useReadQualityIndexMciData,
@@ -16,6 +16,8 @@ import { LabDocuments, AwardDocuments, CertificateDocument, REASON_LABELS, CERTI
 import { useJarCount } from '../hooks/useJarCount'
 import { useOriginPlaces } from '../hooks/useOriginPlaces'
 import { useCustodyHistory } from '../hooks/useCustodyHistory'
+import { useBottledAt } from '../hooks/useBottledAt'
+import { useMyRoles } from '../hooks/useMyRoles'
 import InfoPopover from '../components/InfoPopover'
 
 const QI_WEIGHT_PHQI = 0.539
@@ -39,7 +41,7 @@ function ProductView() {
   const productGateway = addresses[chainId as keyof typeof addresses]?.ProductGateway
   const qualityIndex = addresses[chainId as keyof typeof addresses]?.QualityIndex
   const actorRegistry = addresses[chainId as keyof typeof addresses]?.ActorRegistry
-  const supplyChain = addresses[chainId as keyof typeof addresses]?.SupplyChain
+  const honeyToken = addresses[chainId as keyof typeof addresses]?.HoneyToken
   const pricingModel = addresses[chainId as keyof typeof addresses]?.PricingModel
   const enabled = Boolean(productGateway && batchId !== undefined)
 
@@ -50,13 +52,12 @@ function ProductView() {
     query: { enabled: Boolean(pricingModel) },
   })
 
-  // Nicht mehr an den Wareneingang gekoppelt: die Produktansicht zeigt eine Charge unabhängig vom
-  // Fortschritt in der Lieferkette, der Wareneingang fließt nur noch in den Statushinweis oben ein.
-  const retailReceiptQuery = useReadSupplyChainRetailReceiptTimestamp({
-    address: supplyChain,
+  const { data: processed } = useReadHoneyTokenProcessedBatches({
+    address: honeyToken,
     args: batchId !== undefined ? [batchId] : undefined,
-    query: { enabled: Boolean(supplyChain && batchId !== undefined) },
+    query: { enabled: Boolean(honeyToken && batchId !== undefined) },
   })
+  const bottledAt = useBottledAt(batchId)
 
   const { data: batchData } = useReadProductGatewayGetBatchData({
     address: productGateway,
@@ -108,7 +109,8 @@ function ProductView() {
           actorRegistry={actorRegistry}
           alpha={alpha}
           floorPrice={floorPrice}
-          retailReceiptTimestamp={retailReceiptQuery.data}
+          processed={processed}
+          bottledAt={bottledAt}
         />
       )}
     </div>
@@ -125,7 +127,8 @@ function ProductBatchDetails({
   actorRegistry,
   alpha,
   floorPrice,
-  retailReceiptTimestamp,
+  processed,
+  bottledAt,
 }: {
   batchId: bigint
   batch: { harvestYear: number; beekeeper: `0x${string}`; quantity: bigint }
@@ -136,7 +139,8 @@ function ProductBatchDetails({
   actorRegistry: `0x${string}` | undefined
   alpha: bigint | undefined
   floorPrice: bigint | undefined
-  retailReceiptTimestamp: bigint | undefined
+  processed: boolean | undefined
+  bottledAt: bigint | undefined
 }) {
   const [si, phqi, mci, qi, state, reason] = qualityData
   const jarCount = useJarCount(batchId, holder)
@@ -149,6 +153,9 @@ function ProductBatchDetails({
   const organicScore = mciData?.[2]
   const { records: custodyRecords } = useCustodyHistory(batchId)
   const custodyHolders = [batch.beekeeper, ...custodyRecords.map((record) => record.to)]
+  const holderRoles = useMyRoles(holder)
+  const isSellable = holderRoles.retailer && Boolean(processed)
+  const retailedSince = custodyRecords.length > 0 ? custodyRecords[custodyRecords.length - 1].timestamp : undefined
 
   const siFraction = Number(si) / 10000
   const phqiFraction = Number(phqi) / 10000
@@ -157,17 +164,18 @@ function ProductBatchDetails({
   const alphaFraction = alpha !== undefined ? Number(alpha) / 10000 : undefined
   const floorEuro = floorPrice !== undefined ? Number(floorPrice) / 100 : undefined
 
-  // Statushinweis zuerst nach dem Qualitätszustand (Sperre/Nicht-verkaufsfähig geht immer vor), erst
-  // danach nach dem Lieferkettenfortschritt (Wareneingang) - eine gesperrte Charge bleibt gesperrt,
-  // auch wenn sie zufällig schon im Handel wäre.
   const status =
     state === 1
       ? { kind: 'warning', text: `Charge gesperrt – Nachprüfung erforderlich (${REASON_LABELS[reason] ?? 'unbekannter Grund'})` }
       : state === 2
         ? { kind: 'warning', text: `Nicht verkaufsfähig (${REASON_LABELS[reason] ?? 'unbekannter Grund'})` }
-        : retailReceiptTimestamp
-          ? { kind: 'success', text: `Im Handel seit ${new Date(Number(retailReceiptTimestamp) * 1000).toLocaleString()}` }
-          : { kind: 'info', text: 'Charge in Bearbeitung – noch nicht im Handel' }
+        : isSellable
+          ? {
+              kind: 'success',
+              text: `Verkaufsbereit – abgefüllt am ${bottledAt ? new Date(Number(bottledAt) * 1000).toLocaleString() : '...'}`
+                + (retailedSince ? `, beim Händler seit ${new Date(Number(retailedSince) * 1000).toLocaleString()}` : ''),
+            }
+          : { kind: 'info', text: 'Charge in Bearbeitung – noch nicht verkaufsbereit' }
 
   return (
     <div>

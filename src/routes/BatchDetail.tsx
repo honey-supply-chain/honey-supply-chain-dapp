@@ -10,10 +10,8 @@ import {
   useReadQualityIndexMciData,
   useReadActorRegistryCertifications,
   useReadHoneyTokenProcessedBatches,
-  useReadSupplyChainRetailReceiptTimestamp,
   useWriteSupplyChainRecordTransportData,
   useWriteSupplyChainRecordWarehouseData,
-  useWriteSupplyChainRecordRetailReceipt,
   qualityIndexAbi,
 } from '../generated'
 import { addresses } from '../addresses'
@@ -26,6 +24,8 @@ import { useRequestedAwards } from '../hooks/useRequestedAwards'
 import { useMyRoles } from '../hooks/useMyRoles'
 import { useJarCount } from '../hooks/useJarCount'
 import { useOriginPlaces } from '../hooks/useOriginPlaces'
+import { useCustodyHistory } from '../hooks/useCustodyHistory'
+import { useBottledAt } from '../hooks/useBottledAt'
 import { recordStep, recordError, roleLabel, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
@@ -88,49 +88,7 @@ function BatchDetail() {
     args: id !== undefined ? [id] : undefined,
     query: { enabled: Boolean(honeyToken && id !== undefined) },
   })
-  const { data: retailReceiptTimestamp, refetch: refetchRetailReceiptTimestamp } = useReadSupplyChainRetailReceiptTimestamp({
-    address: supplyChain,
-    args: id !== undefined ? [id] : undefined,
-    query: { enabled: Boolean(supplyChain && id !== undefined) },
-  })
-  const confirmRetailReceipt = useWriteSupplyChainRecordRetailReceipt()
-  const retailReceiptTiming = useTxTiming(confirmRetailReceipt.data)
-  const publicClient = usePublicClient()
-  const [retailReceiptStatus, setRetailReceiptStatus] = useState<'idle' | 'loading' | 'error'>('idle')
-
-  async function handleConfirmRetailReceipt() {
-    if (!id || !supplyChain) return
-    setRetailReceiptStatus('loading')
-    retailReceiptTiming.markSubmitted()
-    try {
-      const nonce = await getFreshNonce(address as `0x${string}` | undefined)
-      const hash = await confirmRetailReceipt.mutateAsync({ address: supplyChain, args: [id], nonce })
-      const receipt = publicClient ? await publicClient.waitForTransactionReceipt({ hash }) : undefined
-      refetchRetailReceiptTimestamp()
-      if (receipt?.status === 'reverted') {
-        recordError({
-          chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
-          message: 'Transaktion wurde on-chain zurückgewiesen (reverted).',
-        })
-        setRetailReceiptStatus('error')
-        return
-      }
-      const { walletConfirmMs, miningMs, totalMs } = retailReceiptTiming.split()
-      void recordStep({
-        chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
-        txHash: hash, gasUsed: receipt?.gasUsed ?? 0n,
-        gasPriceWei: receipt?.effectiveGasPrice,
-        durationMs: totalMs, walletTiming: { walletConfirmMs, miningMs },
-      })
-      setRetailReceiptStatus('idle')
-    } catch (err) {
-      setRetailReceiptStatus('error')
-      recordError({
-        chainId, batchId: id, step: 'recordRetailReceipt', actor: 'retailer', address,
-        message: errorMessage(err),
-      })
-    }
-  }
+  const bottledAt = useBottledAt(id)
 
   const { data: batchData } = useReadProductGatewayGetBatchData({
     address: productGateway,
@@ -155,6 +113,8 @@ function BatchDetail() {
     query: { enabled: Boolean(qualityIndex && id !== undefined) },
   })
   const organicScore = mciData?.[2]
+  const holderRoles = useMyRoles(batchData?.[1])
+  const { records: custodyRecords } = useCustodyHistory(id)
 
   if (!batchData || !qualityData) {
     return <p>Lädt...</p>
@@ -169,15 +129,15 @@ function BatchDetail() {
   const isBeekeeperOfThisBatch = address?.toLowerCase() === batch.beekeeper.toLowerCase()
   const isCurrentHolder = address?.toLowerCase() === holder.toLowerCase()
   const canBottle = roles.bottler && isCurrentHolder && !processed
-  const canConfirmRetailReceipt = roles.retailer && isCurrentHolder && !retailReceiptTimestamp
   const hasAnyAction = isBeekeeperOfThisBatch || isCurrentHolder
   const canRequestLab = isBeekeeperOfThisBatch || (isCurrentHolder && state === 1)
   const blockReason =
     state === 1 ? 'Erst wieder möglich, sobald die Laboranalyse nach der Temperaturverletzung bestätigt wurde.'
       : state === 2 ? 'Nicht möglich: Die Charge ist dauerhaft nicht verkäuflich.'
       : null
-  const retailBlockReason = blockReason ?? (!processed ? 'Erst möglich, sobald die Charge abgefüllt wurde.' : null)
   const reasonLabel = REASON_LABELS[reason] ?? 'unbekannter Grund'
+  const isSellable = holderRoles.retailer && Boolean(processed)
+  const retailedSince = custodyRecords.length > 0 ? custodyRecords[custodyRecords.length - 1].timestamp : undefined
   const statusMessage =
     state === 1
       ? {
@@ -190,7 +150,6 @@ function BatchDetail() {
 
   return (
     <div>
-      <PendingTxOverlay active={retailReceiptStatus === 'loading'} hash={confirmRetailReceipt.data} />
       <h1>Charge #{batchId}</h1>
 
       <h2>Grunddaten</h2>
@@ -249,14 +208,17 @@ function BatchDetail() {
       <p>Wert: {qiFraction.toFixed(4)}</p>
 
       <h2>Status</h2>
-      <p>Abfüllstatus: {processed ? 'abgefüllt' : 'noch nicht abgefüllt'}</p>
-      <p>Abgefüllte Gläser (500 g): {jarCount !== undefined ? jarCount.toString() : '...'}</p>
       <p>
-        Wareneingang:{' '}
-        {retailReceiptTimestamp
-          ? new Date(Number(retailReceiptTimestamp) * 1000).toLocaleString()
-          : 'noch nicht bestätigt'}
+        Abfüllstatus:{' '}
+        {processed
+          ? `abgefüllt am ${bottledAt ? new Date(Number(bottledAt) * 1000).toLocaleString() : '...'}`
+          : 'noch nicht abgefüllt'}
       </p>
+      <p>Abgefüllte Gläser (500 g): {jarCount !== undefined ? jarCount.toString() : '...'}</p>
+      <p>Verkaufsbereit: {isSellable ? 'ja' : 'noch nicht'}</p>
+      {retailedSince && (
+        <p>Beim Händler seit: {new Date(Number(retailedSince) * 1000).toLocaleString()}</p>
+      )}
       <p>
         Preis (500 g):{' '}
         {priceQuery.isError
@@ -292,28 +254,6 @@ function BatchDetail() {
               )
             )}
           </p>
-          {canConfirmRetailReceipt && (
-            retailBlockReason ? (
-              <p>
-                <span className="tile-disabled" title={retailBlockReason}>
-                  Wareneingang bestätigen
-                </span>
-              </p>
-            ) : (
-              <>
-                <p>
-                  <button
-                    type="button"
-                    onClick={handleConfirmRetailReceipt}
-                    disabled={retailReceiptStatus === 'loading'}
-                  >
-                    {retailReceiptStatus === 'loading' ? 'wird bestätigt...' : 'Wareneingang bestätigen'}
-                  </button>
-                </p>
-                {retailReceiptStatus === 'error' && <p>Wareneingang bestätigen fehlgeschlagen.</p>}
-              </>
-            )
-          )}
         </>
       )}
     </div>
