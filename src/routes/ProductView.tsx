@@ -154,7 +154,7 @@ function ProductBatchDetails({
   const { records: custodyRecords } = useCustodyHistory(batchId)
   const custodyHolders = [batch.beekeeper, ...custodyRecords.map((record) => record.to)]
   const holderRoles = useMyRoles(holder)
-  const isSellable = holderRoles.retailer && Boolean(processed)
+  const isSellable = holderRoles.retailer && Boolean(processed) && state === 0
   const retailedSince = custodyRecords.length > 0 ? custodyRecords[custodyRecords.length - 1].timestamp : undefined
 
   const siFraction = Number(si) / 10000

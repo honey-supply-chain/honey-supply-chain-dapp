@@ -136,7 +136,7 @@ function BatchDetail() {
       : state === 2 ? 'Nicht möglich: Die Charge ist dauerhaft nicht verkäuflich.'
       : null
   const reasonLabel = REASON_LABELS[reason] ?? 'unbekannter Grund'
-  const isSellable = holderRoles.retailer && Boolean(processed)
+  const isSellable = holderRoles.retailer && Boolean(processed) && state === 0
   const retailedSince = custodyRecords.length > 0 ? custodyRecords[custodyRecords.length - 1].timestamp : undefined
   const statusMessage =
     state === 1
