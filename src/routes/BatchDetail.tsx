@@ -26,6 +26,7 @@ import { useJarCount } from '../hooks/useJarCount'
 import { useOriginPlaces } from '../hooks/useOriginPlaces'
 import { useCustodyHistory } from '../hooks/useCustodyHistory'
 import { useBottledAt } from '../hooks/useBottledAt'
+import { bytes32ToCid } from '../lib/cid'
 import { recordStep, recordError, roleLabel, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
@@ -501,11 +502,12 @@ export function LabDocuments({
     setLastReportData(loadLastReportData(batchId))
   }, [batchId])
 
-  const { data: labReportCid, refetch: refetchLabReportCid } = useReadQualityIndexPhqiReportCid({
+  const { data: labReportCidHash, refetch: refetchLabReportCid } = useReadQualityIndexPhqiReportCid({
     address: qualityIndex,
     args: batchId !== undefined ? [batchId] : undefined,
     query: { enabled: Boolean(qualityIndex && batchId !== undefined) },
   })
+  const labReportCid = bytes32ToCid(labReportCidHash)
 
   async function refetchLabReportHistory() {
     if (!publicClient || !qualityIndex || batchId === undefined) return
@@ -515,7 +517,7 @@ export function LabDocuments({
     try {
       const fromBlock = addresses[chainId as keyof typeof addresses]?.deployedAtBlock ?? 0n
       const latest = await publicClient.getBlockNumber()
-      const logs: { args: { ipfsCid?: string } }[] = []
+      const logs: { args: { ipfsCid?: `0x${string}` } }[] = []
       const CHUNK_SIZE = 10n;
       let from = fromBlock
       while (from <= latest) {
@@ -542,7 +544,7 @@ export function LabDocuments({
         from = to + 1n
         if (from <= latest) await new Promise((resolve) => setTimeout(resolve, 250))
       }
-      setLabReportHistory(logs.map((log) => log.args.ipfsCid).filter((cid): cid is string => Boolean(cid)))
+      setLabReportHistory(logs.map((log) => bytes32ToCid(log.args.ipfsCid)).filter((cid): cid is string => Boolean(cid)))
       setLabHistoryStatus('idle')
     } catch (err) {
       setLabHistoryStatus('error')
@@ -665,11 +667,12 @@ export function AwardDocuments({
   const [awardForce, setAwardForce] = useState<AwardForce | ''>('')
   const { isRequested, markRequested } = useRequestedAwards()
 
-  const { data: awardCertificateCid, refetch: refetchAwardCertificateCid } = useReadQualityIndexAwardCertificateCid({
+  const { data: awardCertificateCidHash, refetch: refetchAwardCertificateCid } = useReadQualityIndexAwardCertificateCid({
     address: qualityIndex,
     args: batchId !== undefined ? [batchId] : undefined,
     query: { enabled: Boolean(qualityIndex && batchId !== undefined) },
   })
+  const awardCertificateCid = bytes32ToCid(awardCertificateCidHash)
 
   async function handleRequestAward() {
     if (batchId === undefined) return
@@ -749,7 +752,8 @@ export function CertificateDocument({
     args: [beekeeper],
     query: { enabled: Boolean(actorRegistry && organicScore) },
   })
-  const [beekeeperCertCid] = certificationData ?? ['']
+  const [beekeeperCertCidHash] = certificationData ?? [undefined]
+  const beekeeperCertCid = bytes32ToCid(beekeeperCertCidHash)
 
   if (!organicScore) return null
 

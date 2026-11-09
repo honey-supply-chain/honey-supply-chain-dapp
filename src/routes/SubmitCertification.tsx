@@ -7,6 +7,7 @@ import { requestCertification } from '../simulator'
 import { recordStep, recordError } from '../measurements'
 import { useActiveScenario, useCertificationReset } from '../scenario'
 import { CERTIFICATION_LABELS } from './BatchDetail'
+import { bytes32ToCid } from '../lib/cid'
 
 const OPTIONS = [
   { value: 'NATIONAL_QUALITY_LABEL', label: 'Nationales Gütesiegel' },
@@ -33,7 +34,8 @@ function SubmitCertification() {
     args: address ? [address] : undefined,
     query: { enabled: Boolean(actorRegistry && address) },
   })
-  const [currentCid, currentScore] = certificationData ?? ['', 0]
+  const [currentCidHash, currentScore] = certificationData ?? [undefined, 0]
+  const currentCid = bytes32ToCid(currentCidHash)
   useCertificationReset(() => {
     void refetchCertification()
     setStatus('idle')

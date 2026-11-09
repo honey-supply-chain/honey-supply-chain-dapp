@@ -6,6 +6,7 @@ import { addresses } from '../addresses'
 import { useApiaries } from '../hooks/useApiaries'
 import { useBatchComposition } from '../hooks/useBatchComposition'
 import { fetchRegionScore, uploadOrigin } from '../simulator'
+import { cidToBytes32 } from '../lib/cid'
 import { recordStep, recordError, errorMessage } from '../measurements'
 import { useTxTiming } from '../hooks/useTxTiming'
 import { getFreshNonce } from '../nonce'
@@ -94,7 +95,7 @@ function SubmitOrigin() {
       errorRecorded.current = false
       originTiming.markSubmitted()
       const nonce = await getFreshNonce(address as `0x${string}` | undefined)
-      submitOriginTx.mutate({ address: qualityIndex, args: [id, score, cid], nonce })
+      submitOriginTx.mutate({ address: qualityIndex, args: [id, score, cidToBytes32(cid)], nonce })
       setPhase('waiting')
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Abfrage der Region oder Hochladen der Herkunft ist fehlgeschlagen.'

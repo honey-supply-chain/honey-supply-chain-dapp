@@ -6,6 +6,7 @@ import { useReadActorRegistryCertifications } from '../generated'
 import { addresses } from '../addresses'
 import { CERTIFICATION_LABELS } from './BatchDetail'
 import Tile from '../components/Tile'
+import { bytes32ToCid } from '../lib/cid'
 
 const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/'
 
@@ -20,7 +21,8 @@ function Dashboard() {
     args: address ? [address] : undefined,
     query: { enabled: Boolean(actorRegistry && address && roles.beekeeper) },
   })
-  const [certCid, organicScore] = certificationData ?? ['', 0]
+  const [certCidHash, organicScore] = certificationData ?? [undefined, 0]
+  const certCid = bytes32ToCid(certCidHash)
 
   if (!isConnected) {
     return <Navigate to="/" replace />
