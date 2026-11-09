@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useChainId, usePublicClient } from 'wagmi'
 import { parseAbiItem } from 'viem'
 import { addresses } from '../addresses'
+import { findLastLogInChunks, readLogCache, writeLogCache } from '../lib/scanLogs'
 
 const PHQI_REVISED_EVENT = parseAbiItem('event PHQIRevised(uint256 indexed batchId, uint256 oldPhqi)')
 
@@ -12,35 +13,43 @@ export function usePHQIRevision(batchId: bigint | undefined) {
   const publicClient = usePublicClient()
 
   const [oldPhqi, setOldPhqi] = useState<bigint>()
+  const scannedBatchId = useRef<bigint>()
 
   useEffect(() => {
     if (!publicClient || !qualityIndex || batchId === undefined) {
       setOldPhqi(undefined)
       return
     }
-    let cancelled = false
-    publicClient
-      .getLogs({
-        address: qualityIndex,
-        event: PHQI_REVISED_EVENT,
-        args: { batchId },
-        fromBlock: deployedAtBlock ?? 0n,
-      })
-      .then((logs) => {
-        if (cancelled) return
-        if (logs.length === 0) {
-          setOldPhqi(undefined)
+    if (scannedBatchId.current === batchId) return
+    scannedBatchId.current = batchId
+
+    const cacheKey = `oldPhqi:${chainId}:${qualityIndex}:${batchId}`
+    const cached = readLogCache<string>(cacheKey)
+    if (cached !== undefined) {
+      setOldPhqi(BigInt(cached))
+      return
+    }
+
+    const isStillCurrent = () => scannedBatchId.current === batchId
+
+    findLastLogInChunks(publicClient, deployedAtBlock ?? 0n, (from, to) =>
+      publicClient.getLogs({ address: qualityIndex, event: PHQI_REVISED_EVENT, args: { batchId }, fromBlock: from, toBlock: to }),
+    )
+      .then((log) => {
+        if (!log) {
+          if (isStillCurrent()) setOldPhqi(undefined)
           return
         }
-        setOldPhqi(logs[logs.length - 1].args.oldPhqi)
+        writeLogCache(cacheKey, log.args.oldPhqi!.toString())
+        if (isStillCurrent()) setOldPhqi(log.args.oldPhqi)
       })
       .catch(() => {
-        if (!cancelled) setOldPhqi(undefined)
+        if (isStillCurrent()) {
+          setOldPhqi(undefined)
+          scannedBatchId.current = undefined
+        }
       })
-    return () => {
-      cancelled = true
-    }
-  }, [publicClient, qualityIndex, batchId, deployedAtBlock])
+  }, [publicClient, qualityIndex, batchId, deployedAtBlock, chainId])
 
   return oldPhqi
 }

@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useChainId, usePublicClient } from 'wagmi'
 import { parseAbiItem } from 'viem'
 import { addresses } from '../addresses'
+import { findLastLogInChunks, readLogCache, writeLogCache } from '../lib/scanLogs'
 
 const BATCH_BOTTLED_EVENT = parseAbiItem('event BatchBottled(uint256 indexed batchId)')
 
@@ -12,35 +13,50 @@ export function useBottledAt(batchId: bigint | undefined) {
   const publicClient = usePublicClient()
 
   const [timestamp, setTimestamp] = useState<bigint>()
+  const [isLoading, setIsLoading] = useState(false)
+  const scannedBatchId = useRef<bigint>()
 
   useEffect(() => {
     if (!publicClient || !supplyChain || batchId === undefined) {
       setTimestamp(undefined)
+      setIsLoading(false)
       return
     }
-    let cancelled = false
-    publicClient
-      .getLogs({
-        address: supplyChain,
-        event: BATCH_BOTTLED_EVENT,
-        args: { batchId },
-        fromBlock: deployedAtBlock ?? 0n,
-      })
-      .then(async (logs) => {
-        if (logs.length === 0) {
-          if (!cancelled) setTimestamp(undefined)
+    if (scannedBatchId.current === batchId) return
+    scannedBatchId.current = batchId
+
+    const cacheKey = `bottledAt:${chainId}:${supplyChain}:${batchId}`
+    const cached = readLogCache<string>(cacheKey)
+    if (cached !== undefined) {
+      setTimestamp(BigInt(cached))
+      return
+    }
+
+    const isStillCurrent = () => scannedBatchId.current === batchId
+
+    setIsLoading(true)
+    findLastLogInChunks(publicClient, deployedAtBlock ?? 0n, (from, to) =>
+      publicClient.getLogs({ address: supplyChain, event: BATCH_BOTTLED_EVENT, args: { batchId }, fromBlock: from, toBlock: to }),
+    )
+      .then(async (log) => {
+        if (!log) {
+          if (isStillCurrent()) setTimestamp(undefined)
           return
         }
-        const block = await publicClient.getBlock({ blockHash: logs[0].blockHash })
-        if (!cancelled) setTimestamp(block.timestamp)
+        const block = await publicClient.getBlock({ blockHash: log.blockHash })
+        writeLogCache(cacheKey, block.timestamp.toString())
+        if (isStillCurrent()) setTimestamp(block.timestamp)
       })
       .catch(() => {
-        if (!cancelled) setTimestamp(undefined)
+        if (isStillCurrent()) {
+          setTimestamp(undefined)
+          scannedBatchId.current = undefined
+        }
       })
-    return () => {
-      cancelled = true
-    }
-  }, [publicClient, supplyChain, batchId, deployedAtBlock])
+      .finally(() => {
+        if (isStillCurrent()) setIsLoading(false)
+      })
+  }, [publicClient, supplyChain, batchId, deployedAtBlock, chainId])
 
-  return timestamp
+  return { timestamp, isLoading }
 }

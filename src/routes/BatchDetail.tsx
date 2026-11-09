@@ -89,7 +89,7 @@ function BatchDetail() {
     args: id !== undefined ? [id] : undefined,
     query: { enabled: Boolean(honeyToken && id !== undefined) },
   })
-  const bottledAt = useBottledAt(id)
+  const { timestamp: bottledAt, isLoading: bottledAtLoading } = useBottledAt(id)
 
   const { data: batchData } = useReadProductGatewayGetBatchData({
     address: productGateway,
@@ -215,7 +215,7 @@ function BatchDetail() {
       <p>
         Abfüllstatus:{' '}
         {processed
-          ? `abgefüllt am ${bottledAt ? new Date(Number(bottledAt) * 1000).toLocaleString() : '...'}`
+          ? `abgefüllt am ${bottledAt ? new Date(Number(bottledAt) * 1000).toLocaleString() : bottledAtLoading ? 'wird geladen...' : 'unbekannt'}`
           : 'noch nicht abgefüllt'}
       </p>
       <p>Abgefüllte Gläser (500 g): {jarCount !== undefined ? jarCount.toString() : '...'}</p>

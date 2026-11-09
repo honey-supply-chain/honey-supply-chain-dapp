@@ -59,7 +59,7 @@ function ProductView() {
     args: batchId !== undefined ? [batchId] : undefined,
     query: { enabled: Boolean(honeyToken && batchId !== undefined) },
   })
-  const bottledAt = useBottledAt(batchId)
+  const { timestamp: bottledAt, isLoading: bottledAtLoading } = useBottledAt(batchId)
 
   const { data: batchData } = useReadProductGatewayGetBatchData({
     address: productGateway,
@@ -113,6 +113,7 @@ function ProductView() {
           floorPrice={floorPrice}
           processed={processed}
           bottledAt={bottledAt}
+          bottledAtLoading={bottledAtLoading}
           pricingModel={pricingModel}
         />
       )}
@@ -132,6 +133,7 @@ function ProductBatchDetails({
   floorPrice,
   processed,
   bottledAt,
+  bottledAtLoading,
   pricingModel,
 }: {
   batchId: bigint
@@ -145,6 +147,7 @@ function ProductBatchDetails({
   floorPrice: bigint | undefined
   processed: boolean | undefined
   bottledAt: bigint | undefined
+  bottledAtLoading: boolean
   pricingModel: `0x${string}` | undefined
 }) {
   const [si, phqi, mci, qi, state, reason] = qualityData
@@ -183,7 +186,7 @@ function ProductBatchDetails({
         : isSellable
           ? {
               kind: 'success',
-              text: `Verkaufsbereit – abgefüllt am ${bottledAt ? new Date(Number(bottledAt) * 1000).toLocaleString() : '...'}`
+              text: `Verkaufsbereit – abgefüllt am ${bottledAt ? new Date(Number(bottledAt) * 1000).toLocaleString() : bottledAtLoading ? 'wird geladen...' : 'unbekannt'}`
                 + (retailedSince ? `, beim Händler seit ${new Date(Number(retailedSince) * 1000).toLocaleString()}` : ''),
             }
           : { kind: 'info', text: 'Charge in Bearbeitung – noch nicht verkaufsbereit' }
