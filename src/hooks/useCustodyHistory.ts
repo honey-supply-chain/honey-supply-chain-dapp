@@ -23,7 +23,7 @@ export function useCustodyHistory(batchId: bigint | undefined) {
   const records: CustodyRecord[] = []
   for (const entry of data ?? []) {
     if (entry.status !== 'success') break
-    const [from, to, timestamp] = entry.result as readonly [`0x${string}`, `0x${string}`, bigint]
+    const [from, timestamp, to] = entry.result as readonly [`0x${string}`, bigint, `0x${string}`]
     records.push({ from, to, timestamp })
   }
 
