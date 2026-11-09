@@ -151,7 +151,7 @@ export const actorRegistryAbi = [
     inputs: [{ name: '', internalType: 'address', type: 'address' }],
     name: 'certifications',
     outputs: [
-      { name: 'ipfsCid', internalType: 'string', type: 'string' },
+      { name: 'ipfsCid', internalType: 'bytes32', type: 'bytes32' },
       { name: 'organicScore', internalType: 'uint16', type: 'uint16' },
     ],
     stateMutability: 'view',
@@ -254,7 +254,7 @@ export const actorRegistryAbi = [
     type: 'function',
     inputs: [
       { name: 'actorAddress', internalType: 'address', type: 'address' },
-      { name: 'ipfsCid', internalType: 'string', type: 'string' },
+      { name: 'ipfsCid', internalType: 'bytes32', type: 'bytes32' },
       { name: 'organicScore', internalType: 'uint16', type: 'uint16' },
     ],
     name: 'setCertification',
@@ -925,8 +925,8 @@ export const qualityIndexAbi = [
       },
       {
         name: 'ipfsCid',
-        internalType: 'string',
-        type: 'string',
+        internalType: 'bytes32',
+        type: 'bytes32',
         indexed: false,
       },
     ],
@@ -964,7 +964,7 @@ export const qualityIndexAbi = [
     type: 'function',
     inputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     name: 'awardCertificateCid',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
     stateMutability: 'view',
   },
   {
@@ -1122,14 +1122,14 @@ export const qualityIndexAbi = [
     type: 'function',
     inputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     name: 'originCid',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
     stateMutability: 'view',
   },
   {
     type: 'function',
     inputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     name: 'phqiReportCid',
-    outputs: [{ name: '', internalType: 'string', type: 'string' }],
+    outputs: [{ name: '', internalType: 'bytes32', type: 'bytes32' }],
     stateMutability: 'view',
   },
   {
@@ -1137,8 +1137,8 @@ export const qualityIndexAbi = [
     inputs: [{ name: '', internalType: 'uint256', type: 'uint256' }],
     name: 'qualityData',
     outputs: [
-      { name: 'si', internalType: 'uint256', type: 'uint256' },
-      { name: 'phqi', internalType: 'uint256', type: 'uint256' },
+      { name: 'si', internalType: 'uint16', type: 'uint16' },
+      { name: 'phqi', internalType: 'uint16', type: 'uint16' },
     ],
     stateMutability: 'view',
   },
@@ -1156,7 +1156,7 @@ export const qualityIndexAbi = [
     inputs: [
       { name: 'batchId', internalType: 'uint256', type: 'uint256' },
       { name: 'level', internalType: 'uint16', type: 'uint16' },
-      { name: 'ipfsCid', internalType: 'string', type: 'string' },
+      { name: 'ipfsCid', internalType: 'bytes32', type: 'bytes32' },
     ],
     name: 'submitAward',
     outputs: [],
@@ -1167,7 +1167,7 @@ export const qualityIndexAbi = [
     inputs: [
       { name: 'batchId', internalType: 'uint256', type: 'uint256' },
       { name: 'region', internalType: 'uint16', type: 'uint16' },
-      { name: 'ipfsCid', internalType: 'string', type: 'string' },
+      { name: 'ipfsCid', internalType: 'bytes32', type: 'bytes32' },
     ],
     name: 'submitOrigin',
     outputs: [],
@@ -1197,7 +1197,7 @@ export const qualityIndexAbi = [
         ],
       },
       { name: 'variety', internalType: 'uint16', type: 'uint16' },
-      { name: 'ipfsCid', internalType: 'string', type: 'string' },
+      { name: 'ipfsCid', internalType: 'bytes32', type: 'bytes32' },
     ],
     name: 'submitPHQIData',
     outputs: [],
@@ -1291,8 +1291,8 @@ export const supplyChainAbi = [
     ],
     name: 'batchLocations',
     outputs: [
-      { name: 'standId', internalType: 'uint256', type: 'uint256' },
-      { name: 'quantity', internalType: 'uint256', type: 'uint256' },
+      { name: 'standId', internalType: 'uint64', type: 'uint64' },
+      { name: 'quantity', internalType: 'uint128', type: 'uint128' },
     ],
     stateMutability: 'view',
   },
@@ -1323,8 +1323,8 @@ export const supplyChainAbi = [
     name: 'custodyHistory',
     outputs: [
       { name: 'from', internalType: 'address', type: 'address' },
+      { name: 'timestamp', internalType: 'uint64', type: 'uint64' },
       { name: 'to', internalType: 'address', type: 'address' },
-      { name: 'timestamp', internalType: 'uint256', type: 'uint256' },
     ],
     stateMutability: 'view',
   },
